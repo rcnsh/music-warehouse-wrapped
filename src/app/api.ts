@@ -9,7 +9,7 @@ import type { Wrapped } from '../types';
 
 const TOKEN_KEY = 'mw-wrapped:token';
 const IMAGES_KEY = 'mw-wrapped:artist-images';
-/** Artist photos barely change, and /api/top is expensive for the warehouse's D1 budget. */
+/** Artist photos barely change, and each /api/top is two Spotify calls through the warehouse. */
 const IMAGES_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export const getToken = () => sessionStorage.getItem(TOKEN_KEY);
@@ -79,7 +79,7 @@ async function loadArtistImages(token: string): Promise<Record<string, string>> 
   const images: Record<string, string> = {};
   for (const range of ['medium_term', 'long_term']) {
     try {
-      const response = await fetch(`/api/top?range=${range}&limit=50`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetch(`/api/top?range=${range}&limit=50&type=artists`, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) continue;
       const body = (await response.json()) as TopArtists;
       for (const artist of body.artists?.items ?? []) {
