@@ -288,38 +288,44 @@ button.link {
 
 .story-controls {
   position: absolute;
-  top: 26px;
-  left: 12px;
+  top: 20px;
+  left: 10px;
+  right: 10px;
+  height: 22px;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: center;
+  pointer-events: none;
+}
+
+.story-controls > * {
+  pointer-events: auto;
 }
 
 .story-controls button {
   border: 0;
   background: rgba(0, 0, 0, 0.45);
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 22px;
 }
 
 .story-paused {
   font-family: 'Space Mono', monospace;
-  font-size: 12px;
+  font-size: 10px;
+  line-height: 22px;
+  height: 22px;
   background: rgba(0, 0, 0, 0.45);
   border-radius: 999px;
-  padding: 6px 12px;
+  padding: 0 8px;
 }
 
-.close {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 2;
-  border: 0;
-  font-size: 34px;
-  line-height: 1;
-  padding: 4px 12px;
-  background: rgba(0, 0, 0, 0.5);
-  border-radius: 999px;
+.story-controls .story-close {
+  margin-left: auto;
+  width: 22px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 20px;
 }

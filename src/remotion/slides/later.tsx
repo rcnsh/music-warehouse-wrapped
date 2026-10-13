@@ -3,7 +3,7 @@ import type { WrappedMonth } from '../../types';
 import { useArtistImage, useWrapped } from '../context';
 import { dayName, monthName, number } from '../format';
 import { Confetti } from '../three/scenes';
-import { DOODLES, Cutout, Doodle, Marker, Mono, Poster, PosterLines, Sticker, Tape, Torn, useEnter } from '../ui/collage';
+import { DOODLES, Cutout, Doodle, Marker, Mono, Poster, PosterLines, Stack, Sticker, Tape, Torn, useEnter } from '../ui/collage';
 import { FONTS, INK, PAPER, POP, SPRING } from '../theme';
 
 const countUp = (frame: number, from: number, to: number, value: number) =>
@@ -15,7 +15,11 @@ export function Age() {
   const age = data.listening_age!;
   const head = useEnter(0);
   const note = useEnter(60, 'bouncy');
-  const decades = age.decades.filter((d) => d.share >= 0.02);
+  const decades = [...age.decades]
+    .filter((d) => d.share >= 0.02)
+    .sort((x, y) => y.share - x.share)
+    .slice(0, 5)
+    .sort((x, y) => x.decade - y.decade);
   return (
     <AbsoluteFill style={{ background: POP.yellow }}>
       <div style={{ position: 'absolute', left: 80, top: 170, opacity: head, fontFamily: FONTS.body, fontWeight: 900, fontSize: 76, lineHeight: 1, color: INK }}>
@@ -27,26 +31,28 @@ export function Age() {
         <Poster text={String(countUp(frame, 10, 50, age.age))} width={720} max={900} />
       </div>
       <Doodle {...DOODLES.circle} x={0} y={320} width={780} height={700} stroke={1.8} delay={48} stretch />
-      <div style={{ position: 'absolute', left: 80, top: 1180, transform: `scale(${note})`, transformOrigin: 'left center' }}>
-        <Marker size={58} rotate={-3}>
-          You played like someone who came of age
-          <br />
-          on music from {age.window[0]}–{age.window[1]}.
-        </Marker>
-      </div>
-      {decades.map((decade, i) => {
-        const grow = interpolate(frame - 70 - i * 6, [0, 18], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) });
-        const width = Math.max(320, 860 * (decade.share / Math.max(...decades.map((d) => d.share))));
-        return (
-          <div key={decade.decade} style={{ position: 'absolute', left: 80, top: 1430 + i * 84, width: width * grow, overflow: 'hidden' }}>
-            <Torn color={INK} seed={`decade${decade.decade}`} depth={6} style={{ padding: '10px 22px', width }}>
-              <Mono size={34} color={PAPER} style={{ whiteSpace: 'nowrap' }}>
-                {decade.decade}s · {Math.round(decade.share * 100)}%
-              </Mono>
-            </Torn>
-          </div>
-        );
-      })}
+      <Stack bottom={110} gap={14}>
+        <div style={{ transform: `scale(${note})`, transformOrigin: 'left center', marginBottom: 30 }}>
+          <Marker size={58} rotate={-3}>
+            You played like someone who came of age
+            <br />
+            on music from {age.window[0]}–{age.window[1]}.
+          </Marker>
+        </div>
+        {decades.map((decade, i) => {
+          const grow = interpolate(frame - 70 - i * 6, [0, 18], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp', easing: Easing.out(Easing.cubic) });
+          const width = Math.max(320, 860 * (decade.share / Math.max(...decades.map((d) => d.share))));
+          return (
+            <div key={decade.decade} style={{ width: width * grow, overflow: 'hidden' }}>
+              <Torn color={INK} seed={`decade${decade.decade}`} depth={6} style={{ padding: '10px 22px', width }}>
+                <Mono size={34} color={PAPER} style={{ whiteSpace: 'nowrap' }}>
+                  {decade.decade}s · {Math.round(decade.share * 100)}%
+                </Mono>
+              </Torn>
+            </div>
+          );
+        })}
+      </Stack>
     </AbsoluteFill>
   );
 }
@@ -64,31 +70,33 @@ export function Discoveries() {
         you discovered
       </Marker>
       <div style={{ position: 'absolute', left: 70, top: 290 }}>
-        <Poster text={number(countUp(frame, 8, 46, data.discoveries.artists))} width={940} max={520} color={POP.green} />
+        <Poster text={number(countUp(frame, 8, 46, data.discoveries.artists))} width={940} max={460} color={POP.green} />
       </div>
-      <div style={{ position: 'absolute', left: 80, top: 780, transform: `scale(${label})`, transformOrigin: 'left center' }}>
-        <Poster text="new artists" width={640} max={170} color={PAPER} />
-        <Mono size={38} color={PAPER} style={{ marginTop: 16 }}>
-          and {number(data.discoveries.songs)} songs you'd never played
-        </Mono>
-      </div>
-      {top && (
-        <div style={{ position: 'absolute', left: 80, top: 1120, display: 'flex', alignItems: 'center', transform: `translateY(${(1 - card) * 900}px)` }}>
-          <Cutout src={image} size={420} border={14} rotate={-5} />
-          <div style={{ marginLeft: 40, width: 460 }}>
-            <Sticker color={POP.green} size={42} rotate={-4}>
-              biggest find
-            </Sticker>
-            <div style={{ marginTop: 22 }}>
-              <PosterLines text={top.name} width={460} lines={3} max={130} color={PAPER} />
-            </div>
-            <Mono size={32} color={PAPER} style={{ marginTop: 14 }}>
-              {number(top.minutes)} minutes
-            </Mono>
-          </div>
+      <Stack bottom={120} gap={60}>
+        <div style={{ transform: `scale(${label})`, transformOrigin: 'left center' }}>
+          <Poster text="new artists" width={640} max={170} color={PAPER} />
+          <Mono size={38} color={PAPER} style={{ marginTop: 16 }}>
+            and {number(data.discoveries.songs)} songs you'd never played
+          </Mono>
         </div>
-      )}
-      <Tape x={130} y={1140} rotate={-40} width={180} seed="disc" />
+        {top && (
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', transform: `translateY(${(1 - card) * 900}px)` }}>
+            <Cutout src={image} size={400} border={14} rotate={-5} />
+            <div style={{ marginLeft: 40, width: 480 }}>
+              <Sticker color={POP.green} size={42} rotate={-4}>
+                biggest find
+              </Sticker>
+              <div style={{ marginTop: 22 }}>
+                <PosterLines text={top.name} width={480} lines={3} max={130} color={PAPER} />
+              </div>
+              <Mono size={32} color={PAPER} style={{ marginTop: 14 }}>
+                {number(top.minutes)} minutes
+              </Mono>
+            </div>
+            <Tape x={40} y={10} rotate={-40} width={180} seed="disc" />
+          </div>
+        )}
+      </Stack>
     </AbsoluteFill>
   );
 }
@@ -158,7 +166,7 @@ export function Streak() {
   const days = countUp(frame, 8, 50, streak.days);
   const words = useEnter(30, 'bouncy');
   // One dot per day, capped so the grid fits; each dot stands for several days when it can't.
-  const dots = Math.min(streak.days, 120);
+  const dots = Math.min(streak.days, 72);
   const perRow = 12;
   const lit = Math.round((days / streak.days) * dots);
   return (
@@ -168,27 +176,29 @@ export function Streak() {
         your longest streak
       </Marker>
       <div style={{ position: 'absolute', left: 70, top: 280 }}>
-        <Poster text={String(days)} width={700} max={700} />
+        <Poster text={String(days)} width={700} max={520} />
       </div>
-      <div style={{ position: 'absolute', left: 80, top: 900, transform: `scale(${words})`, transformOrigin: 'left center' }}>
-        <Poster text="days in a row" width={900} max={200} />
-        <Mono size={38} style={{ marginTop: 18 }}>
-          {dayName(streak.from, true)} – {dayName(streak.to, true)}
-        </Mono>
-      </div>
-      <div style={{ position: 'absolute', left: 80, top: 1240, width: 920, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
-        {Array.from({ length: dots }, (_, i) => (
-          <div
-            key={i}
-            style={{
-              width: (920 - 14 * (perRow - 1)) / perRow,
-              height: (920 - 14 * (perRow - 1)) / perRow / 2.2,
-              borderRadius: 10,
-              background: i < lit ? INK : 'rgba(11,11,11,0.15)',
-            }}
-          />
-        ))}
-      </div>
+      <Stack bottom={120} gap={50}>
+        <div style={{ transform: `scale(${words})`, transformOrigin: 'left center' }}>
+          <Poster text="days in a row" width={900} max={200} />
+          <Mono size={38} style={{ marginTop: 18 }}>
+            {dayName(streak.from, true)} – {dayName(streak.to, true)}
+          </Mono>
+        </div>
+        <div style={{ width: 920, display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+          {Array.from({ length: dots }, (_, i) => (
+            <div
+              key={i}
+              style={{
+                width: (920 - 14 * (perRow - 1)) / perRow,
+                height: (920 - 14 * (perRow - 1)) / perRow / 2.2,
+                borderRadius: 10,
+                background: i < lit ? INK : 'rgba(11,11,11,0.15)',
+              }}
+            />
+          ))}
+        </div>
+      </Stack>
     </AbsoluteFill>
   );
 }

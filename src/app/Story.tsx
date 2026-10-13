@@ -12,7 +12,7 @@ const HOLD_MS = 220;
  * The story as Spotify presents it: segmented progress bars, tap the right
  * side for the next card and the left for the previous one, hold to pause.
  */
-export function Story({ props, onEnded }: { props: WrappedProps; onEnded: () => void }) {
+export function Story({ props, onEnded, onClose }: { props: WrappedProps; onEnded: () => void; onClose: () => void }) {
   const player = useRef<PlayerRef>(null);
   const { slides, durationInFrames } = useMemo(() => timeline(props.data), [props.data]);
   const [frame, setFrame] = useState(0);
@@ -31,13 +31,15 @@ export function Story({ props, onEnded }: { props: WrappedProps; onEnded: () => 
     current.addEventListener('play', onPlay);
     current.addEventListener('ended', onEnded);
     current.play();
+    // Development only: lets a debugging session seek the story from the console.
+    if (import.meta.env.DEV) Object.assign(window, { __story: { player: current, slides } });
     return () => {
       current.removeEventListener('frameupdate', onFrame);
       current.removeEventListener('pause', onPause);
       current.removeEventListener('play', onPlay);
       current.removeEventListener('ended', onEnded);
     };
-  }, [onEnded]);
+  }, [onEnded, slides]);
 
   // The slide being shown is the last one to have started; a slide counts as
   // started once its entrance transition has finished.
@@ -111,13 +113,17 @@ export function Story({ props, onEnded }: { props: WrappedProps; onEnded: () => 
         })}
       </div>
       <div className="story-taps" onPointerDown={onPointerDown} onPointerUp={onPointerUp} onPointerLeave={() => (pressedAt.current = null)} />
+      {/* One slim row under the bars, above the slides' own top margin. */}
       <div className="story-controls">
         {props.audio && (
           <button type="button" onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Unmute' : 'Mute'}>
-            {muted ? 'Sound off' : 'Sound on'}
+            {muted ? '🔇' : '🔊'}
           </button>
         )}
         {paused && <span className="story-paused">Paused</span>}
+        <button type="button" className="story-close" onClick={onClose} aria-label="Close">
+          ×
+        </button>
       </div>
     </div>
   );

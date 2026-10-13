@@ -17,6 +17,12 @@ type Stage =
 
 export function App() {
   const [stage, setStage] = useState<Stage>(() => (getToken() ? { kind: 'pick' } : { kind: 'connect' }));
+
+  // Development only: ?fixture opens the stored sample, no token or network needed.
+  useEffect(() => {
+    if (!import.meta.env.DEV || !new URLSearchParams(location.search).has('fixture')) return;
+    void import('../remotion/fixture.json').then((fixture) => setStage({ kind: 'ready', data: (fixture.default as unknown as WrappedProps).data }));
+  }, []);
   const [artistImages, setArtistImages] = useState<Record<string, string>>({});
   const [soundtrack, setSoundtrack] = useState<Soundtrack | null>(null);
   const abort = useRef<AbortController | null>(null);
@@ -88,12 +94,11 @@ export function App() {
         />
       )}
       {stage.kind === 'playing' && props && (
-        <>
-          <Story props={props} onEnded={() => setStage({ kind: 'ready', data: stage.data })} />
-          <button type="button" className="close" onClick={() => setStage({ kind: 'ready', data: stage.data })} aria-label="Close">
-            ×
-          </button>
-        </>
+        <Story
+          props={props}
+          onEnded={() => setStage({ kind: 'ready', data: stage.data })}
+          onClose={() => setStage({ kind: 'ready', data: stage.data })}
+        />
       )}
     </main>
   );

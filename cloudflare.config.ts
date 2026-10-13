@@ -14,8 +14,8 @@ export default defineConfig({
     env: {
       ASSETS: bindings.assets(),
       // Straight to the warehouse Worker, without leaving Cloudflare or meeting
-      // the WAF rule on its public hostname.
-      WAREHOUSE: bindings.worker({ worker: 'music-warehouse' }),
+      // the WAF rule on its public hostname. `vite dev` uses the deployed one.
+      WAREHOUSE: bindings.worker({ worker: 'music-warehouse', dev: { remote: true } }),
     },
   },
 });

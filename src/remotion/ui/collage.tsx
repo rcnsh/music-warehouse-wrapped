@@ -321,3 +321,23 @@ export const DOODLES = {
   squiggle: { d: 'M4 50 C 16 20, 28 80, 40 50 S 64 20, 76 50 S 100 80, 112 50 S 136 20, 148 50', length: 240, viewBox: '0 0 152 100' },
   burst: { d: 'M50 2 L 50 22 M50 78 L 50 98 M2 50 L 22 50 M78 50 L 98 50 M16 16 L 30 30 M70 70 L 84 84 M84 16 L 70 30 M30 70 L 16 84', length: 400, viewBox: '0 0 100 100' },
 } as const;
+
+/**
+ * A column of text blocks pinned to the bottom of the frame. Each block
+ * pushes the next one down rather than sitting at a fixed height, so a name
+ * that wraps to two lines can never land on the line below it.
+ */
+export function Stack({ children, left = 80, bottom = 150, width = 920, gap = 24, style }: {
+  children: ReactNode;
+  left?: number;
+  bottom?: number;
+  width?: number;
+  gap?: number;
+  style?: CSSProperties;
+}) {
+  return (
+    <div style={{ position: 'absolute', left, bottom, width, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap, ...style }}>
+      {children}
+    </div>
+  );
+}

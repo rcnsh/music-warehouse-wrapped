@@ -3,7 +3,7 @@ import { AbsoluteFill, useCurrentFrame, useVideoConfig } from 'remotion';
 import { useFontsVersion, useWrapped } from '../context';
 import { monthName, number } from '../format';
 import { ArtCarousel, HoloDisc } from '../three/scenes';
-import { DOODLES, Cutout, Doodle, Marker, Mono, PosterLines, Sticker, Tape, useEnter, useJitter } from '../ui/collage';
+import { DOODLES, Cutout, Doodle, Marker, Mono, PosterLines, Stack, Sticker, Tape, useEnter, useJitter } from '../ui/collage';
 import { FONTS, INK, PAPER, POP } from '../theme';
 
 export function Song() {
@@ -15,24 +15,26 @@ export function Song() {
   const stats = useEnter(44);
   return (
     <AbsoluteFill style={{ background: INK }}>
-      <div style={{ position: 'absolute', left: 90, top: 120 }}>
-        <HoloDisc art={art} size={900} speed={1.4} />
+      <div style={{ position: 'absolute', left: 140, top: 130 }}>
+        <HoloDisc art={art} size={800} speed={1.4} />
       </div>
-      <Marker size={84} color={POP.yellow} rotate={-6} style={{ position: 'absolute', left: 80, top: 1010, opacity: label }}>
-        your top song
-      </Marker>
-      <div style={{ position: 'absolute', left: 80, top: 1130, transform: `scale(${name})`, transformOrigin: 'left top' }}>
-        <PosterLines text={song.name} width={920} lines={2} max={250} color={PAPER} />
-        <div style={{ fontFamily: FONTS.body, fontWeight: 700, fontSize: 52, color: PAPER, marginTop: 16 }}>{song.artist}</div>
-      </div>
-      <div style={{ position: 'absolute', left: 80, top: 1600, opacity: stats, transform: `translateY(${(1 - stats) * 40}px)` }}>
-        <Sticker color={POP.yellow} size={58} rotate={-2}>
-          played {number(song.plays)} times
-        </Sticker>
-        <Mono size={38} color={PAPER} style={{ marginTop: 26 }}>
-          It peaked in {monthName(song.peak_month)}.
-        </Mono>
-      </div>
+      <Stack bottom={120} gap={26}>
+        <Marker size={84} color={POP.yellow} rotate={-6} style={{ opacity: label }}>
+          your top song
+        </Marker>
+        <div style={{ transform: `scale(${name})`, transformOrigin: 'left center' }}>
+          <PosterLines text={song.name} width={920} lines={2} max={230} color={PAPER} />
+          <div style={{ fontFamily: FONTS.body, fontWeight: 700, fontSize: 52, color: PAPER, marginTop: 16 }}>{song.artist}</div>
+        </div>
+        <div style={{ opacity: stats, transform: `translateY(${(1 - stats) * 40}px)` }}>
+          <Sticker color={POP.yellow} size={58} rotate={-2}>
+            played {number(song.plays)} times
+          </Sticker>
+          <Mono size={38} color={PAPER} style={{ marginTop: 26 }}>
+            It peaked in {monthName(song.peak_month)}.
+          </Mono>
+        </div>
+      </Stack>
     </AbsoluteFill>
   );
 }
@@ -118,17 +120,17 @@ export function Album() {
           transform: `translate(${jitter.x}px, ${jitter.y}px) rotate(${5 + jitter.r}deg) scale(${card})`,
         }}
       >
-        <Cutout src={art} size={820} border={20} />
+        <Cutout src={art} size={740} border={20} />
       </div>
       <Tape x={560} y={300} rotate={4} width={300} seed="album-a" color="rgba(255, 225, 74, 0.8)" />
-      <Doodle {...DOODLES.circle} x={760} y={1020} width={260} height={260} stroke={10} delay={30} color={POP.red} />
-      <div style={{ position: 'absolute', left: 80, top: 1240, opacity: text, transform: `translateY(${(1 - text) * 60}px)` }}>
-        <PosterLines text={album.name} width={920} lines={2} max={220} />
-        <div style={{ fontFamily: FONTS.body, fontWeight: 800, fontSize: 54, color: INK, marginTop: 14 }}>{album.artist}</div>
-        <Mono size={38} style={{ marginTop: 22 }}>
+      <Doodle {...DOODLES.circle} x={760} y={900} width={240} height={240} stroke={10} delay={30} color={POP.red} />
+      <Stack bottom={130} gap={14} style={{ opacity: text, transform: `translateY(${(1 - text) * 60}px)` }}>
+        <PosterLines text={album.name} width={920} lines={2} max={200} />
+        <div style={{ fontFamily: FONTS.body, fontWeight: 800, fontSize: 54, color: INK }}>{album.artist}</div>
+        <Mono size={38}>
           {album.songs} songs · {number(album.minutes)} minutes
         </Mono>
-      </div>
+      </Stack>
     </AbsoluteFill>
   );
 }

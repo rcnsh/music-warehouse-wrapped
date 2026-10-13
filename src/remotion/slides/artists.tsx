@@ -3,7 +3,7 @@ import { AbsoluteFill, interpolate, useCurrentFrame } from 'remotion';
 import type { WrappedArtist } from '../../types';
 import { useArtistImage, useFontsVersion, useWrapped } from '../context';
 import { number, percent } from '../format';
-import { DOODLES, Cutout, Doodle, Marker, Mono, Poster, PosterLines, Sticker, Tape, useEnter, useJitter } from '../ui/collage';
+import { DOODLES, Cutout, Doodle, Marker, Mono, Poster, PosterLines, Stack, Sticker, Tape, useEnter, useJitter } from '../ui/collage';
 import { FONTS, INK, PAPER, POP } from '../theme';
 
 /** "YOUR TOP ARTIST" zooming in line by line until it fills the frame. */
@@ -45,34 +45,36 @@ export function Artist() {
       <div
         style={{
           position: 'absolute',
-          left: 150,
+          left: 190,
           top: 170,
           transform: `translate(${jitter.x}px, ${(1 - card) * -1200 + jitter.y}px) rotate(${-4 + jitter.r}deg)`,
         }}
       >
-        <Cutout src={image} size={780} border={18} />
+        <Cutout src={image} size={700} border={18} />
       </div>
-      <Tape x={190} y={190} rotate={-35} seed="artist-a" />
-      <Tape x={900} y={920} rotate={-30} seed="artist-b" />
-      <div style={{ position: 'absolute', left: 80, top: 1040, transform: `translateX(${(1 - name) * 1100}px)` }}>
-        <PosterLines text={artist.name} width={920} lines={2} max={260} color={POP.acid} />
-      </div>
-      <div style={{ position: 'absolute', left: 90, top: 1420, opacity: stats, transform: `translateY(${(1 - stats) * 40}px)` }}>
-        <Mono size={44} color={PAPER}>
-          {number(artist.minutes)} minutes
-          <br />
-          {percent(artist.share)} of everything you played
-          <br />
-          on {number(artist.days)} different days
-        </Mono>
-      </div>
-      {artist.longest_run_days >= 3 && (
-        <div style={{ position: 'absolute', left: 520, top: 1700, transform: `scale(${note})` }}>
-          <Sticker color={POP.pink} size={46} rotate={4}>
-            {artist.longest_run_days} days in a row
-          </Sticker>
+      <Tape x={230} y={190} rotate={-35} seed="artist-a" />
+      <Tape x={860} y={840} rotate={-30} seed="artist-b" />
+      <Stack bottom={120} gap={28}>
+        <div style={{ transform: `translateX(${(1 - name) * 1100}px)` }}>
+          <PosterLines text={artist.name} width={920} lines={2} max={220} color={POP.acid} />
         </div>
-      )}
+        <div style={{ opacity: stats, transform: `translateY(${(1 - stats) * 40}px)` }}>
+          <Mono size={44} color={PAPER}>
+            {number(artist.minutes)} minutes
+            <br />
+            {percent(artist.share)} of everything you played
+            <br />
+            on {number(artist.days)} different days
+          </Mono>
+        </div>
+        {artist.longest_run_days >= 3 && (
+          <div style={{ transform: `scale(${note})`, transformOrigin: 'left center' }}>
+            <Sticker color={POP.pink} size={46} rotate={-3}>
+              {artist.longest_run_days} days in a row
+            </Sticker>
+          </div>
+        )}
+      </Stack>
     </AbsoluteFill>
   );
 }
