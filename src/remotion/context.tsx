@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useSyncExternalStore } from 'react';
 import type { WrappedProps } from '../types';
 
 const WrappedContext = createContext<WrappedProps | null>(null);
@@ -17,21 +17,26 @@ export function useArtistImage(name: string, fallback: string | null): string | 
   return artistImages[name.toLowerCase()] ?? fallback;
 }
 
-/**
+/*
  * Text fitting measures in the DOM, so it must re-run once the web fonts land.
- * Bumps a counter whenever the document finishes loading fonts.
+ * One counter for the whole document, bumped whenever it finishes loading
+ * fonts, so a font arriving is one update rather than one per text block.
  */
+let fontsVersion = 0;
+const fontsListeners = new Set<() => void>();
+const bumpFonts = () => {
+  fontsVersion++;
+  fontsListeners.forEach((listener) => listener());
+};
+if (typeof document !== 'undefined') {
+  void document.fonts.ready.then(bumpFonts);
+  document.fonts.addEventListener('loadingdone', bumpFonts);
+}
+const subscribeFonts = (listener: () => void) => {
+  fontsListeners.add(listener);
+  return () => fontsListeners.delete(listener);
+};
+
 export function useFontsVersion(): number {
-  const [version, setVersion] = useState(0);
-  useEffect(() => {
-    let alive = true;
-    const bump = () => alive && setVersion((v) => v + 1);
-    void document.fonts.ready.then(bump);
-    document.fonts.addEventListener('loadingdone', bump);
-    return () => {
-      alive = false;
-      document.fonts.removeEventListener('loadingdone', bump);
-    };
-  }, []);
-  return version;
+  return useSyncExternalStore(subscribeFonts, () => fontsVersion, () => 0);
 }
