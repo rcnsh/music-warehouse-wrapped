@@ -1,0 +1,325 @@
+@import url('https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@500;700;900&family=Space+Mono&display=swap');
+
+:root {
+  --ink: #0b0b0b;
+  --paper: #f1ede4;
+  --acid: #d4ff3a;
+  --pink: #ff4fbf;
+  --green: #1ed760;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: Archivo, system-ui, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+.app {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.panel {
+  width: min(520px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel.center {
+  align-items: center;
+  text-align: center;
+}
+
+.wordmark {
+  font-family: Anton, Impact, sans-serif;
+  font-weight: 400;
+  font-size: clamp(72px, 18vw, 120px);
+  line-height: 0.85;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+}
+
+.wordmark span {
+  color: var(--acid);
+}
+
+.lede {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.hint {
+  color: #a7a39a;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.error {
+  background: #ff3b30;
+  color: var(--ink);
+  font-weight: 700;
+  padding: 10px 14px;
+  margin: 0;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex: 1;
+}
+
+.field input {
+  background: transparent;
+  border: 2px solid var(--paper);
+  color: var(--paper);
+  padding: 12px 14px;
+  font-family: Archivo, sans-serif;
+  font-size: 16px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.field.file input {
+  border-style: dashed;
+}
+
+button {
+  background: transparent;
+  color: var(--paper);
+  border: 2px solid var(--paper);
+  padding: 12px 16px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--acid);
+  border-color: var(--acid);
+  color: var(--ink);
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+button.big {
+  font-family: Anton, Impact, sans-serif;
+  font-weight: 400;
+  font-size: 30px;
+  padding: 16px;
+  transform: rotate(-1.5deg);
+}
+
+button.link {
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  font-weight: 500;
+  align-self: flex-start;
+  color: #c9c5bc;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 10px 18px;
+}
+
+.chip:hover {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.custom {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row button {
+  flex: 1;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin: 0;
+}
+
+.facts dt {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: #a7a39a;
+}
+
+.facts dd {
+  margin: 4px 0 0;
+  font-weight: 900;
+  font-size: 18px;
+  overflow-wrap: anywhere;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+}
+
+.progress .bar {
+  flex: 1;
+  height: 10px;
+  border: 2px solid var(--paper);
+}
+
+.progress .bar div {
+  height: 100%;
+  background: var(--green);
+}
+
+.spinner {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 8px solid #333;
+  border-top-color: var(--acid);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The story fills the viewport at 9:16, phone-style. */
+.story {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: min(100dvh, calc(100vw * 16 / 9));
+  width: min(100vw, calc(100dvh * 9 / 16));
+  background: var(--ink);
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+@media (min-width: 700px) {
+  .story {
+    height: min(94dvh, calc(100vw * 16 / 9));
+    width: min(100vw, calc(94dvh * 9 / 16));
+    border-radius: 18px;
+  }
+}
+
+.story-bars {
+  position: absolute;
+  top: 12px;
+  left: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.story-bar {
+  flex: 1;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.35);
+  overflow: hidden;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+.story-bar div {
+  height: 100%;
+  background: #fff;
+}
+
+.story-taps {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.story-controls {
+  position: absolute;
+  top: 26px;
+  left: 12px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.story-controls button {
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.story-paused {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.close {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  border: 0;
+  font-size: 34px;
+  line-height: 1;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 999px;
+}

@@ -1,0 +1,47 @@
+{
+  "name": "music-warehouse-wrapped",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "studio": "remotion studio src/remotion/index.ts",
+    "render": "remotion render src/remotion/index.ts Wrapped out/wrapped.mp4 --props=src/remotion/fixture.json --gl=angle",
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "deploy": "cf deploy"
+  },
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@react-three/fiber": "^9.8.1",
+    "@remotion/google-fonts": "4.0.535",
+    "@remotion/layout-utils": "4.0.535",
+    "@remotion/media": "4.0.535",
+    "@remotion/player": "4.0.535",
+    "@remotion/three": "4.0.535",
+    "@remotion/transitions": "4.0.535",
+    "@remotion/web-renderer": "4.0.535",
+    "mediabunny": "1.61.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remotion": "4.0.535",
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "beta",
+    "@cloudflare/workers-types": "5.20261013.1",
+    "@remotion/bundler": "4.0.535",
+    "@remotion/cli": "4.0.535",
+    "@remotion/renderer": "4.0.535",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.186.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "cf": "^1.0.0-beta.14",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.4"
+  },
+  "license": "MIT"
+}
