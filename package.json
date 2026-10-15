@@ -29,7 +29,6 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "beta",
-    "@cloudflare/workers-types": "5.20261013.1",
     "@remotion/bundler": "4.0.535",
     "@remotion/cli": "4.0.535",
     "@remotion/renderer": "4.0.535",
