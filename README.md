@@ -2,13 +2,12 @@
 <h1>music-warehouse-wrapped</h1>
 <p><strong>Spotify-Wrapped-style stories from your own listening history, for any year or range.</strong></p>
 <p>
-<a href="https://wrapped.rcn.sh"><img alt="live: wrapped.rcn.sh" src="https://img.shields.io/badge/live-wrapped.rcn.sh-black?style=flat-square"></a>
+<a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-blue?style=flat-square"></a>
 <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white">
-<img alt="React" src="https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB">
-<img alt="Remotion" src="https://img.shields.io/badge/Remotion-0B84F3?style=flat-square">
-<a href="https://github.com/rcnsh/music-warehouse#clients"><img alt="part of music-warehouse" src="https://img.shields.io/badge/part%20of-music--warehouse-1DB954?style=flat-square"></a>
+<a href="https://wrapped.rcn.sh"><img alt="Web app (React + Remotion)" src="https://img.shields.io/badge/Web%20app-20232A?style=flat-square&logo=react&logoColor=61DAFB"></a>
+<a href="https://github.com/rcnsh/music-warehouse#clients"><img alt="Part of music-warehouse" src="https://img.shields.io/badge/part%20of-music--warehouse-1DB954?style=flat-square"></a>
 </p>
-<p><a href="#quick-start">Quick start</a> · <a href="#whats-in-a-story">What's in a story</a> · <a href="#self-hosting">Self-hosting</a> · <a href="#development">Development</a> · <a href="#related-projects">Related projects</a></p>
+<p><a href="https://wrapped.rcn.sh"><strong>Open the app</strong></a> · <a href="#quick-start">Quick start</a> · <a href="#whats-in-a-story">What's in a story</a> · <a href="#self-hosting">Self-hosting</a> · <a href="#development">Development</a> · <a href="#related-projects">Related projects</a></p>
 </div>
 
 Spotify Wrapped covers one year, cut off in the autumn, from Spotify's own data.
@@ -220,4 +219,4 @@ it when that response changes.
 
 ## Licence
 
-MIT (see `package.json`).
+MIT. See [LICENSE](LICENSE).
