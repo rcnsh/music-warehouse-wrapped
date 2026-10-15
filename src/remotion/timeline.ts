@@ -1,5 +1,5 @@
 import type { Wrapped } from '../types';
-import { FPS } from './theme';
+import { FPS } from './dimensions';
 
 export type SlideId =
   | 'intro'

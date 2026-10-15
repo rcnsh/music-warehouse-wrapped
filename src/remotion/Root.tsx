@@ -4,12 +4,11 @@ import fixture from './fixture.json';
 import { calculateWrappedMetadata, Wrapped } from './Wrapped';
 import { Summary } from './slides/later';
 import { WrappedProvider } from './context';
-import { FPS, HEIGHT, WIDTH } from './theme';
+import { FPS, HEIGHT, SUMMARY_SETTLED_FRAME, WIDTH } from './dimensions';
 
 const defaults = fixture as unknown as WrappedProps;
 
-/** Frame of the summary slide at which everything on it has landed. */
-export const SUMMARY_SETTLED_FRAME = 110;
+export { SUMMARY_SETTLED_FRAME };
 
 /** The summary card on its own, frozen once it has settled, for saving as an image. */
 export function SummaryCard(props: WrappedProps) {

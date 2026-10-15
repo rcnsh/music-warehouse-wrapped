@@ -93,7 +93,13 @@ export function abandonSignIn(): string | null {
 
 function pending(): Pending | null {
   const stored = sessionStorage.getItem(PENDING_KEY);
-  return stored ? (JSON.parse(stored) as Pending) : null;
+  if (!stored) return null;
+  try {
+    const value = JSON.parse(stored) as Partial<Pending> | null;
+    return typeof value?.url === 'string' && typeof value.verifier === 'string' ? (value as Pending) : null;
+  } catch {
+    return null;
+  }
 }
 
 let callback: Callback | null | undefined;
@@ -142,5 +148,6 @@ async function exchangeCode(code: string): Promise<Connection> {
   if (!response.ok || !body?.token) {
     throw new ApiError(response.status, signInErrorMessage(body?.error ?? 'invalid_grant'));
   }
-  return { url: started.url, token: body.token };
+  // The warehouse mints sign-in tokens read-only.
+  return { url: started.url, token: body.token, access: 'read' };
 }

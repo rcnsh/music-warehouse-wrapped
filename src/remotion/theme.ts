@@ -38,9 +38,7 @@ export const POP = {
 
 export type Pop = (typeof POP)[keyof typeof POP];
 
-export const WIDTH = 1080;
-export const HEIGHT = 1920;
-export const FPS = 30;
+export { FPS, HEIGHT, WIDTH } from './dimensions';
 
 /** Springs used across slides, so motion has one personality. */
 export const SPRING = {

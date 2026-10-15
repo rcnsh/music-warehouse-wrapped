@@ -1,13 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { Wrapped, WrappedProps } from '../types';
-import { FPS } from '../remotion/theme';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ArtistImages, Wrapped, WrappedProps } from '../types';
+import { FPS } from '../remotion/dimensions';
 import { timeline } from '../remotion/timeline';
-import { ApiError, clearConnection, fetchArtistImages, fetchPresets, fetchWrapped, getConnection, normalizeUrl, setConnection, type Connection, type WrappedPreset } from './api';
-import { download, exportCard, exportVideo } from './exporter';
-import { daysAgo, rollingPresets } from './ranges';
+import { ApiError, clearConnection, fetchArtistImages, fetchPresets, fetchWrapped, getConnection, markReadOnly, normalizeUrl, setConnection, type Connection, type WrappedPreset } from './api';
+import type { VideoSupport } from './exporter';
+import { addDays, lastClosedDay, rangeOptions, rangeProblem } from './ranges';
 import { abandonSignIn, beginSignIn, finishSignIn, signInErrorMessage, takeCallback } from './signin';
-import { analyzeSoundtrack, type Soundtrack } from './soundtrack';
-import { Story } from './Story';
+import type { Soundtrack } from './soundtrack';
+
+// The player, the composition and the renderer are most of the app's weight;
+// the connect and pick screens load without them.
+const Story = lazy(() => import('./Story').then((module) => ({ default: module.Story })));
+const NO_IMAGES: ArtistImages = { ids: {}, names: {} };
 
 type Stage =
   | { kind: 'connect'; error?: string; url?: string }
@@ -26,9 +30,15 @@ export function App() {
     if (!import.meta.env.DEV || !new URLSearchParams(location.search).has('fixture')) return;
     void import('../remotion/fixture.json').then((fixture) => setStage({ kind: 'ready', data: (fixture.default as unknown as WrappedProps).data }));
   }, []);
-  const [artistImages, setArtistImages] = useState<Record<string, string>>({});
+  const [artistImages, setArtistImages] = useState<ArtistImages>(NO_IMAGES);
   const [soundtrack, setSoundtrack] = useState<Soundtrack | null>(null);
+  const [access, setAccess] = useState<Connection['access']>(() => getConnection()?.access ?? 'unknown');
   const abort = useRef<AbortController | null>(null);
+  // Kept for signOut, which shouldn't change identity whenever the soundtrack does.
+  const soundtrackRef = useRef(soundtrack);
+  useEffect(() => {
+    soundtrackRef.current = soundtrack;
+  }, [soundtrack]);
 
   const connected = stage.kind !== 'connect' && stage.kind !== 'signing-in';
   useEffect(() => {
@@ -37,9 +47,13 @@ export function App() {
   }, [connected]);
 
   const signOut = useCallback((error?: string) => {
+    abort.current?.abort();
     clearConnection();
+    if (soundtrackRef.current) URL.revokeObjectURL(soundtrackRef.current.url);
+    setSoundtrack(null);
     setPresets(null);
-    setArtistImages({});
+    setArtistImages(NO_IMAGES);
+    setAccess('unknown');
     setStage({ kind: 'connect', error });
   }, []);
 
@@ -51,7 +65,8 @@ export function App() {
     finishSignIn(code)
       .then((connection) => {
         if (!current) return;
-        setConnection(connection);
+        setConnection(connection, { persist: true });
+        setAccess(connection.access);
         setStage({ kind: 'pick' });
       })
       .catch((error) => {
@@ -79,14 +94,22 @@ export function App() {
     const connection = getConnection();
     if (!connection) return setStage({ kind: 'connect' });
     abort.current?.abort();
-    abort.current = new AbortController();
+    // This request's own controller: by the time it settles, abort.current may be the next one's.
+    const controller = new AbortController();
+    abort.current = controller;
     setStage({ kind: 'loading', from, to });
     try {
-      const data = await fetchWrapped(connection, from, to, abort.current.signal);
+      const data = await fetchWrapped(connection, from, to, controller.signal);
       setStage({ kind: 'ready', data });
     } catch (error) {
-      if (abort.current.signal.aborted) return;
+      if (controller.signal.aborted) return;
       if (error instanceof ApiError && error.status === 401) return signOut(TOKEN_REFUSED);
+      if (error instanceof ApiError && error.status === 403) {
+        // Only a read token is refused a range: offer just the ones it can open from now on.
+        markReadOnly();
+        setAccess('read');
+        return setStage({ kind: 'pick', error: NOT_COMPUTED });
+      }
       setStage({ kind: 'pick', error: error instanceof Error ? error.message : String(error) });
     }
   }, [signOut]);
@@ -113,13 +136,14 @@ export function App() {
           error={stage.error}
           initialUrl={stage.url}
           onConnect={(connection, ranges) => {
-            setConnection(connection);
+            setConnection(connection, { persist: false });
+            setAccess(connection.access);
             setPresets(ranges);
             setStage({ kind: 'pick' });
           }}
         />
       )}
-      {stage.kind === 'pick' && <Pick presets={presets} error={stage.error} onPick={load} onSignOut={() => signOut()} />}
+      {stage.kind === 'pick' && <Pick presets={presets} access={access} error={stage.error} onPick={load} onSignOut={() => signOut()} />}
       {stage.kind === 'loading' && (
         <section className="panel center">
           <div className="spinner" />
@@ -141,17 +165,22 @@ export function App() {
         />
       )}
       {stage.kind === 'playing' && props && (
-        <Story
-          props={props}
-          onEnded={() => setStage({ kind: 'ready', data: stage.data })}
-          onClose={() => setStage({ kind: 'ready', data: stage.data })}
-        />
+        <Suspense fallback={<section className="panel center"><div className="spinner" /></section>}>
+          <Story
+            props={props}
+            onEnded={() => setStage({ kind: 'ready', data: stage.data })}
+            onClose={() => setStage({ kind: 'ready', data: stage.data })}
+          />
+        </Suspense>
       )}
     </main>
   );
 }
 
 const TOKEN_REFUSED = 'That token was not accepted. It may have expired: sign in with Spotify again, or paste a new one.';
+const NOT_COMPUTED = "The warehouse hasn't wrapped that range yet, and this token can only open ranges it has. Pick one of the ranges above.";
+/** Device tokens the warehouse mints start with this; ADMIN_TOKEN and the older READ_TOKEN don't. */
+const DEVICE_TOKEN_PREFIX = 'mw_';
 
 /** Where this page load starts: a sign-in coming back, a connection already in this tab, or nothing yet. */
 function initialStage(): Stage {
@@ -179,7 +208,7 @@ function Connect({ error, initialUrl, onConnect }: {
         setBusy(true);
         setProblem(undefined);
         try {
-          const connection = { url: normalizeUrl(url), token: token.trim() };
+          const connection: Connection = { url: normalizeUrl(url), token: token.trim(), access: 'unknown' };
           onConnect(connection, await fetchPresets(connection));
         } catch (e) {
           if (e instanceof ApiError && e.status === 401) setProblem(TOKEN_REFUSED);
@@ -218,43 +247,48 @@ function Connect({ error, initialUrl, onConnect }: {
       <p className="divider">or paste a token</p>
       <label className="field">
         <span>Warehouse token</span>
-        <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Device token, ADMIN_TOKEN or READ_TOKEN" />
+        <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Read device token (mw_…)" />
       </label>
+      {token.trim() && !token.trim().startsWith(DEVICE_TOKEN_PREFIX) && (
+        <p className="hint" role="status">
+          That isn't a device token. If it is the warehouse's ADMIN_TOKEN, don't use it here: it can mint and revoke tokens. Sign in with
+          Spotify, or mint a read token, instead.
+        </p>
+      )}
       <button type="submit" disabled={busy || !token.trim()}>
         {busy ? 'Connecting…' : 'Continue with token'}
       </button>
-      {problem && <p className="error">{problem}</p>}
+      {problem && (
+        <p className="error" role="alert">
+          {problem}
+        </p>
+      )}
       <p className="hint">
         Your browser talks to your{' '}
         <a href="https://github.com/rcnsh/music-warehouse" target="_blank" rel="noreferrer">
           music-warehouse
         </a>{' '}
         directly; nothing passes through this site. List {location.origin} in its CORS_ORIGINS. Signing in with the Spotify account that owns
-        the warehouse gets a read token for 90 days, which opens each year and ranges already wrapped; an admin token can wrap any range.
-        Tokens are kept for this tab only.
+        the warehouse gets a read token for 90 days, kept for this tab only. A pasted token is kept for this page only, so a reload asks
+        for it again. Use a read token: never paste the admin token into a web page.
       </p>
     </form>
   );
 }
 
-function Pick({ presets, error, onPick, onSignOut }: {
+function Pick({ presets, access, error, onPick, onSignOut }: {
   presets: WrappedPreset[] | null;
+  access: Connection['access'];
   error?: string;
   onPick: (from: string, to: string) => void;
   onSignOut: () => void;
 }) {
-  const options = useMemo(() => {
-    const yesterday = daysAgo(1);
-    const oldest = presets?.at(-1);
-    return [
-      ...(presets ?? []),
-      ...rollingPresets(),
-      ...(oldest ? [{ label: 'All time', from: oldest.from, to: yesterday }] : []),
-    ];
-  }, [presets]);
-  const [from, setFrom] = useState(daysAgo(180));
-  const [to, setTo] = useState(daysAgo(1));
-  const max = daysAgo(1);
+  const max = lastClosedDay();
+  const options = useMemo(() => rangeOptions(presets, access), [presets, access]);
+  const [from, setFrom] = useState(() => addDays(max, -179));
+  const [to, setTo] = useState(max);
+  const [problem, setProblem] = useState<string | null>(null);
+  const shown = problem ?? error;
   return (
     <section className="panel">
       <h1 className="wordmark">
@@ -272,7 +306,9 @@ function Pick({ presets, error, onPick, onSignOut }: {
         className="custom"
         onSubmit={(e) => {
           e.preventDefault();
-          onPick(from, to);
+          const why = rangeProblem(from, to);
+          setProblem(why);
+          if (!why) onPick(from, to);
         }}
       >
         <label className="field">
@@ -287,7 +323,12 @@ function Pick({ presets, error, onPick, onSignOut }: {
           Wrap it
         </button>
       </form>
-      {error && <p className="error">{error}</p>}
+      {access === 'read' && <p className="hint">This token opens the ranges above, and other dates only if the warehouse has already wrapped them.</p>}
+      {shown && (
+        <p className="error" role="alert">
+          {shown}
+        </p>
+      )}
       <button type="button" className="link" onClick={onSignOut}>
         Use a different warehouse
       </button>
@@ -305,18 +346,41 @@ function Ready({ props, soundtrack, onSoundtrack, onPlay, onBack }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [support, setSupport] = useState<VideoSupport | null>(null);
   const exporting = useRef<AbortController | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const { data } = props;
   const seconds = timeline(data).durationInFrames / FPS;
   const name = `wrapped-${data.range.from}-to-${data.range.to}`;
+  const muted = props.audio === null;
+
+  // Leaving this screen stops a render in progress, rather than letting it finish and download unasked.
+  useEffect(() => () => exporting.current?.abort(), []);
+
+  // Whether this browser can encode the video at all, and in which format, before offering to.
+  useEffect(() => {
+    let current = true;
+    setSupport(null);
+    import('./exporter')
+      .then((exporter) => exporter.checkVideoSupport(muted))
+      .then(
+        (result) => current && setSupport(result),
+        (e: unknown) => current && setSupport({ ok: false, reason: e instanceof Error ? e.message : String(e) }),
+      );
+    return () => {
+      current = false;
+    };
+  }, [muted]);
 
   const pickAudio = async (file: File | undefined) => {
     if (!file) return;
     setError(null);
     setBusy('Finding the hook…');
     try {
+      const { analyzeSoundtrack } = await import('./soundtrack');
+      const next = await analyzeSoundtrack(file, seconds);
       if (soundtrack) URL.revokeObjectURL(soundtrack.url);
-      onSoundtrack(await analyzeSoundtrack(file, seconds));
+      onSoundtrack(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -324,15 +388,26 @@ function Ready({ props, soundtrack, onSoundtrack, onPlay, onBack }: {
     }
   };
 
+  const removeAudio = () => {
+    if (soundtrack) URL.revokeObjectURL(soundtrack.url);
+    onSoundtrack(null);
+    // Otherwise choosing the same file again fires no change event.
+    if (fileInput.current) fileInput.current.value = '';
+  };
+
   const video = async () => {
+    if (!support?.ok) return;
     setError(null);
     setBusy('Rendering video');
     setProgress(0);
-    exporting.current = new AbortController();
+    const controller = new AbortController();
+    exporting.current = controller;
     try {
-      download(await exportVideo(props, setProgress, exporting.current.signal), `${name}.mp4`);
+      const { download, exportVideo } = await import('./exporter');
+      const blob = await exportVideo(props, support.format, setProgress, controller.signal);
+      if (!controller.signal.aborted) download(blob, `${name}.${support.format.extension}`);
     } catch (e) {
-      if (!exporting.current.signal.aborted) setError(e instanceof Error ? e.message : String(e));
+      if (!controller.signal.aborted) setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(null);
     }
@@ -342,6 +417,7 @@ function Ready({ props, soundtrack, onSoundtrack, onPlay, onBack }: {
     setError(null);
     setBusy('Rendering card');
     try {
+      const { download, exportCard } = await import('./exporter');
       download(await exportCard(props), `${name}.png`);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -351,6 +427,7 @@ function Ready({ props, soundtrack, onSoundtrack, onPlay, onBack }: {
   };
 
   const top = data.top_artists[0];
+  const percent = Math.round(progress * 100);
   return (
     <section className="panel">
       <h1 className="wordmark">
@@ -382,31 +459,32 @@ function Ready({ props, soundtrack, onSoundtrack, onPlay, onBack }: {
       )}
       <label className="field file">
         <span>Soundtrack (optional)</span>
-        <input type="file" accept="audio/*" onChange={(e) => void pickAudio(e.target.files?.[0])} disabled={busy !== null} />
+        <input ref={fileInput} type="file" accept="audio/*" onChange={(e) => void pickAudio(e.target.files?.[0])} disabled={busy !== null} />
       </label>
       {soundtrack && (
         <p className="hint">
           {soundtrack.name}: starting at {Math.floor(soundtrack.startSeconds / 60)}:{String(Math.round(soundtrack.startSeconds % 60)).padStart(2, '0')}, the loudest stretch.{' '}
-          <button type="button" className="link" onClick={() => (URL.revokeObjectURL(soundtrack.url), onSoundtrack(null))}>
+          <button type="button" className="link" onClick={removeAudio}>
             Remove
           </button>
         </p>
       )}
       <div className="row">
-        <button type="button" onClick={() => void video()} disabled={busy !== null || data.totals.plays === 0}>
-          Download video
+        <button type="button" onClick={() => void video()} disabled={busy !== null || data.totals.plays === 0 || !support?.ok}>
+          {support?.ok && support.format.container !== 'mp4' ? 'Download video (WebM)' : 'Download video'}
         </button>
         <button type="button" onClick={() => void card()} disabled={busy !== null || !top}>
           Download summary card
         </button>
       </div>
+      {support && !support.ok && <p className="hint">Video export isn't available in this browser: {support.reason} The summary card still works.</p>}
       {busy && (
         <div className="progress">
-          <span>{busy}</span>
+          <span role="status">{busy}</span>
           {busy === 'Rendering video' && (
             <>
-              <div className="bar">
-                <div style={{ width: `${Math.round(progress * 100)}%` }} />
+              <div className="bar" role="progressbar" aria-label="Video render progress" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+                <div style={{ width: `${percent}%` }} />
               </div>
               <button type="button" className="link" onClick={() => exporting.current?.abort()}>
                 Cancel
@@ -415,7 +493,11 @@ function Ready({ props, soundtrack, onSoundtrack, onPlay, onBack }: {
           )}
         </div>
       )}
-      {error && <p className="error">{error}</p>}
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
       <p className="hint">Video and card are made in this browser; nothing is uploaded. Keep the tab in front while it renders.</p>
       <button type="button" className="link" onClick={onBack}>
         Pick another range

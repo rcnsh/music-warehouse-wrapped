@@ -61,7 +61,7 @@ export function Discoveries() {
   const { data } = useWrapped();
   const frame = useCurrentFrame();
   const top = data.discoveries.top[0];
-  const image = useArtistImage(top?.name ?? '', top?.image ?? null);
+  const image = useArtistImage(top, top?.image ?? null);
   const label = useEnter(46, 'bouncy');
   const card = useEnter(70, 'bouncy');
   return (
@@ -212,7 +212,7 @@ export function Summary() {
   const { data } = useWrapped();
   const frame = useCurrentFrame();
   const top = data.top_artists[0]!;
-  const image = useArtistImage(top.name, top.image);
+  const image = useArtistImage(top, top.image);
   const card = useEnter(0, 'soft');
   const reveal = (i: number) => interpolate(frame - 14 - i * 4, [0, 10], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
   const corner = data.listening_age
