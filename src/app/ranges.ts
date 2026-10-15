@@ -18,21 +18,15 @@ export interface Preset {
   to: string;
 }
 
-/** The warehouse's history starts in July 2020. */
-const FIRST_YEAR = 2020;
-
 /**
- * Ranges worth one tap. Every one ends yesterday at the latest, because the
- * warehouse only summarizes ranges that have ended.
+ * Rolling ranges to offer beside the warehouse's own presets. Each ends
+ * yesterday, because the warehouse only summarizes ranges that have ended,
+ * and needs the admin token, because a read token computes presets only.
  */
-export function presets(now = new Date()): Preset[] {
-  const year = now.getFullYear();
+export function rollingPresets(now = new Date()): Preset[] {
   const yesterday = daysAgo(1, now);
-  const out: Preset[] = [];
-  if (yesterday >= `${year}-01-01`) out.push({ label: `${year} so far`, from: `${year}-01-01`, to: yesterday });
-  for (let y = year - 1; y >= FIRST_YEAR; y--) out.push({ label: String(y), from: `${y}-01-01`, to: `${y}-12-31` });
-  out.push({ label: 'Last 90 days', from: daysAgo(90, now), to: yesterday });
-  out.push({ label: 'Last 30 days', from: daysAgo(30, now), to: yesterday });
-  out.push({ label: 'All time', from: `${FIRST_YEAR}-07-01`, to: yesterday });
-  return out;
+  return [
+    { label: 'Last 90 days', from: daysAgo(90, now), to: yesterday },
+    { label: 'Last 30 days', from: daysAgo(30, now), to: yesterday },
+  ];
 }

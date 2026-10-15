@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Wrapped, WrappedProps } from '../types';
 import { FPS } from '../remotion/theme';
 import { timeline } from '../remotion/timeline';
-import { ApiError, clearToken, fetchArtistImages, fetchWrapped, getToken, setToken } from './api';
+import { ApiError, clearConnection, fetchArtistImages, fetchPresets, fetchWrapped, getConnection, normalizeUrl, setConnection, type Connection, type WrappedPreset } from './api';
 import { download, exportCard, exportVideo } from './exporter';
-import { daysAgo, presets } from './ranges';
+import { daysAgo, rollingPresets } from './ranges';
 import { analyzeSoundtrack, type Soundtrack } from './soundtrack';
 import { Story } from './Story';
 
@@ -16,7 +16,8 @@ type Stage =
   | { kind: 'playing'; data: Wrapped };
 
 export function App() {
-  const [stage, setStage] = useState<Stage>(() => (getToken() ? { kind: 'pick' } : { kind: 'connect' }));
+  const [stage, setStage] = useState<Stage>(() => (getConnection() ? { kind: 'pick' } : { kind: 'connect' }));
+  const [presets, setPresets] = useState<WrappedPreset[] | null>(null);
 
   // Development only: ?fixture opens the stored sample, no token or network needed.
   useEffect(() => {
@@ -29,28 +30,45 @@ export function App() {
 
   const connected = stage.kind !== 'connect';
   useEffect(() => {
-    const token = getToken();
-    if (token && connected) void fetchArtistImages(token).then(setArtistImages);
+    const connection = getConnection();
+    if (connection && connected) void fetchArtistImages(connection).then(setArtistImages);
   }, [connected]);
 
+  const signOut = useCallback((error?: string) => {
+    clearConnection();
+    setPresets(null);
+    setArtistImages({});
+    setStage({ kind: 'connect', error });
+  }, []);
+
+  // A connection restored from this tab's storage still needs its presets.
+  useEffect(() => {
+    const connection = getConnection();
+    if (!connection || !connected || presets) return;
+    fetchPresets(connection)
+      .then(setPresets)
+      .catch((error) => {
+        if (error instanceof ApiError && error.status === 401) return signOut('That token was not accepted.');
+        setPresets([]);
+        setStage({ kind: 'pick', error: error instanceof Error ? error.message : String(error) });
+      });
+  }, [connected, presets, signOut]);
+
   const load = useCallback(async (from: string, to: string) => {
-    const token = getToken();
-    if (!token) return setStage({ kind: 'connect' });
+    const connection = getConnection();
+    if (!connection) return setStage({ kind: 'connect' });
     abort.current?.abort();
     abort.current = new AbortController();
     setStage({ kind: 'loading', from, to });
     try {
-      const data = await fetchWrapped(token, from, to, abort.current.signal);
+      const data = await fetchWrapped(connection, from, to, abort.current.signal);
       setStage({ kind: 'ready', data });
     } catch (error) {
       if (abort.current.signal.aborted) return;
-      if (error instanceof ApiError && error.status === 401) {
-        clearToken();
-        return setStage({ kind: 'connect', error: 'That token was not accepted.' });
-      }
+      if (error instanceof ApiError && error.status === 401) return signOut('That token was not accepted.');
       setStage({ kind: 'pick', error: error instanceof Error ? error.message : String(error) });
     }
-  }, []);
+  }, [signOut]);
 
   const props = useMemo<WrappedProps | null>(() => {
     if (stage.kind !== 'ready' && stage.kind !== 'playing') return null;
@@ -66,13 +84,14 @@ export function App() {
       {stage.kind === 'connect' && (
         <Connect
           error={stage.error}
-          onToken={(token) => {
-            setToken(token);
+          onConnect={(connection, ranges) => {
+            setConnection(connection);
+            setPresets(ranges);
             setStage({ kind: 'pick' });
           }}
         />
       )}
-      {stage.kind === 'pick' && <Pick error={stage.error} onPick={load} onSignOut={() => (clearToken(), setStage({ kind: 'connect' }))} />}
+      {stage.kind === 'pick' && <Pick presets={presets} error={stage.error} onPick={load} onSignOut={() => signOut()} />}
       {stage.kind === 'loading' && (
         <section className="panel center">
           <div className="spinner" />
@@ -104,14 +123,28 @@ export function App() {
   );
 }
 
-function Connect({ error, onToken }: { error?: string; onToken: (token: string) => void }) {
-  const [value, setValue] = useState('');
+function Connect({ error, onConnect }: { error?: string; onConnect: (connection: Connection, presets: WrappedPreset[]) => void }) {
+  const [url, setUrl] = useState('');
+  const [token, setToken] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState(error);
   return (
     <form
       className="panel"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        if (value.trim()) onToken(value);
+        if (!url.trim() || !token.trim()) return;
+        setBusy(true);
+        setProblem(undefined);
+        try {
+          const connection = { url: normalizeUrl(url), token: token.trim() };
+          onConnect(connection, await fetchPresets(connection));
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 401) setProblem('That token was not accepted.');
+          else setProblem(e instanceof Error ? e.message : String(e));
+        } finally {
+          setBusy(false);
+        }
       }}
     >
       <h1 className="wordmark">
@@ -119,20 +152,44 @@ function Connect({ error, onToken }: { error?: string; onToken: (token: string) 
       </h1>
       <p className="lede">Your listening, any stretch of it, told the way Spotify tells it once a year.</p>
       <label className="field">
-        <span>Warehouse token</span>
-        <input type="password" autoComplete="off" value={value} onChange={(e) => setValue(e.target.value)} placeholder="ADMIN_TOKEN or READ_TOKEN" autoFocus />
+        <span>Warehouse URL</span>
+        <input type="text" inputMode="url" spellCheck={false} autoComplete="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://music-warehouse.example.workers.dev" autoFocus />
       </label>
-      <p className="hint">The admin token can wrap any range. The read token can only open ranges already wrapped. It's kept for this tab only.</p>
-      {error && <p className="error">{error}</p>}
-      <button type="submit" className="primary">
-        Continue
+      <label className="field">
+        <span>Warehouse token</span>
+        <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="ADMIN_TOKEN or READ_TOKEN" />
+      </label>
+      <p className="hint">
+        Your browser talks to your{' '}
+        <a href="https://github.com/rcnsh/music-warehouse" target="_blank" rel="noreferrer">
+          music-warehouse
+        </a>{' '}
+        directly; nothing passes through this site. List {location.origin} in its CORS_ORIGINS. The admin token can wrap any range, the read token
+        each year and ranges already wrapped. Both are kept for this tab only.
+      </p>
+      {problem && <p className="error">{problem}</p>}
+      <button type="submit" className="primary" disabled={busy}>
+        {busy ? 'Connecting…' : 'Continue'}
       </button>
     </form>
   );
 }
 
-function Pick({ error, onPick, onSignOut }: { error?: string; onPick: (from: string, to: string) => void; onSignOut: () => void }) {
-  const options = useMemo(() => presets(), []);
+function Pick({ presets, error, onPick, onSignOut }: {
+  presets: WrappedPreset[] | null;
+  error?: string;
+  onPick: (from: string, to: string) => void;
+  onSignOut: () => void;
+}) {
+  const options = useMemo(() => {
+    const yesterday = daysAgo(1);
+    const oldest = presets?.at(-1);
+    return [
+      ...(presets ?? []),
+      ...rollingPresets(),
+      ...(oldest ? [{ label: 'All time', from: oldest.from, to: yesterday }] : []),
+    ];
+  }, [presets]);
   const [from, setFrom] = useState(daysAgo(180));
   const [to, setTo] = useState(daysAgo(1));
   const max = daysAgo(1);
@@ -158,7 +215,7 @@ function Pick({ error, onPick, onSignOut }: { error?: string; onPick: (from: str
       >
         <label className="field">
           <span>From</span>
-          <input type="date" value={from} max={to} min="2020-07-01" onChange={(e) => setFrom(e.target.value)} required />
+          <input type="date" value={from} max={to} min={presets?.at(-1)?.from} onChange={(e) => setFrom(e.target.value)} required />
         </label>
         <label className="field">
           <span>To</span>
@@ -170,7 +227,7 @@ function Pick({ error, onPick, onSignOut }: { error?: string; onPick: (from: str
       </form>
       {error && <p className="error">{error}</p>}
       <button type="button" className="link" onClick={onSignOut}>
-        Use a different token
+        Use a different warehouse
       </button>
     </section>
   );

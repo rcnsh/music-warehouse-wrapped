@@ -1,21 +1,17 @@
-import { bindings, defineConfig } from 'cf/config';
+import { defineConfig } from 'cf/config';
 
 export default defineConfig({
   worker: {
     name: 'music-warehouse-wrapped',
     compatibilityDate: '2026-10-01',
-    entrypoint: './worker/index.ts',
     observability: { enabled: true },
-    assets: {
-      notFoundHandling: 'single-page-application',
-      // The API proxy lives in the Worker; everything else is the static app.
-      runWorkerFirst: ['/api/*'],
-    },
-    env: {
-      ASSETS: bindings.assets(),
-      // Straight to the warehouse Worker, without leaving Cloudflare or meeting
-      // the WAF rule on its public hostname. `vite dev` uses the deployed one.
-      WAREHOUSE: bindings.worker({ worker: 'music-warehouse', dev: { remote: true } }),
-    },
+    // Only the custom domain. The workers.dev and preview URLs are off, so
+    // there is one public address to reason about.
+    domains: ['wrapped.rcn.sh'],
+    workersDev: false,
+    previewUrls: false,
+    // Static only. The browser calls whichever warehouse its reader names, so
+    // this Worker holds no binding, credential or address for any of them.
+    assets: { notFoundHandling: 'single-page-application' },
   },
 });
