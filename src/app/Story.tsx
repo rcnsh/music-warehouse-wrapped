@@ -1,7 +1,7 @@
 import { Player, type PlayerRef } from '@remotion/player';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { WrappedProps } from '../types';
-import { FPS, HEIGHT, WIDTH } from '../remotion/theme';
+import { FPS, HEIGHT, WIDTH } from '../remotion/dimensions';
 import { timeline } from '../remotion/timeline';
 import { Wrapped } from '../remotion/Wrapped';
 
@@ -19,6 +19,12 @@ export function Story({ props, onEnded, onClose }: { props: WrappedProps; onEnde
   const [paused, setPaused] = useState(false);
   const [muted, setMuted] = useState(false);
   const pressedAt = useRef<number | null>(null);
+  // Read through a ref, so a new onEnded from each parent render doesn't
+  // re-run the effect below, whose play() would resume a paused story.
+  const ended = useRef(onEnded);
+  useEffect(() => {
+    ended.current = onEnded;
+  }, [onEnded]);
 
   useEffect(() => {
     const current = player.current;
@@ -26,10 +32,11 @@ export function Story({ props, onEnded, onClose }: { props: WrappedProps; onEnde
     const onFrame = (e: { detail: { frame: number } }) => setFrame(e.detail.frame);
     const onPause = () => setPaused(true);
     const onPlay = () => setPaused(false);
+    const onEnd = () => ended.current();
     current.addEventListener('frameupdate', onFrame);
     current.addEventListener('pause', onPause);
     current.addEventListener('play', onPlay);
-    current.addEventListener('ended', onEnded);
+    current.addEventListener('ended', onEnd);
     current.play();
     // Development only: lets a debugging session seek the story from the console.
     if (import.meta.env.DEV) Object.assign(window, { __story: { player: current, slides } });
@@ -37,9 +44,9 @@ export function Story({ props, onEnded, onClose }: { props: WrappedProps; onEnde
       current.removeEventListener('frameupdate', onFrame);
       current.removeEventListener('pause', onPause);
       current.removeEventListener('play', onPlay);
-      current.removeEventListener('ended', onEnded);
+      current.removeEventListener('ended', onEnd);
     };
-  }, [onEnded, slides]);
+  }, [slides]);
 
   // The slide being shown is the last one to have started; a slide counts as
   // started once its entrance transition has finished.
@@ -59,6 +66,8 @@ export function Story({ props, onEnded, onClose }: { props: WrappedProps; onEnde
       if (e.key === 'ArrowRight') go(index + 1);
       else if (e.key === 'ArrowLeft') go(index - 1);
       else if (e.key === ' ') {
+        // Space on a focused control is that control's: Mute or Close, not pause.
+        if (e.target instanceof Element && e.target.closest('button, a, input, select, textarea')) return;
         e.preventDefault();
         player.current?.toggle();
       } else if (e.key === 'm') setMuted((m) => !m);

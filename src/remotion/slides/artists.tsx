@@ -34,7 +34,7 @@ export function ArtistTease() {
 export function Artist() {
   const { data } = useWrapped();
   const artist = data.top_artists[0]!;
-  const image = useArtistImage(artist.name, artist.image);
+  const image = useArtistImage(artist, artist.image);
   const card = useEnter(0, 'bouncy');
   const name = useEnter(16, 'snappy');
   const stats = useEnter(34);
@@ -82,7 +82,7 @@ export function Artist() {
 function ArtistRow({ artist, rank, delay }: { artist: WrappedArtist; rank: number; delay: number }) {
   useFontsVersion();
   const enter = useEnter(delay, 'snappy');
-  const image = useArtistImage(artist.name, artist.image);
+  const image = useArtistImage(artist, artist.image);
   const from = rank % 2 === 0 ? 1100 : -1100;
   const nameWidth = 600;
   const { fontSize } = fitText({ text: artist.name.toUpperCase(), withinWidth: nameWidth, fontFamily: FONTS.poster, validateFontIsLoaded: false });

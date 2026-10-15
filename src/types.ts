@@ -1,8 +1,11 @@
 /**
- * The body of the Worker's GET /api/wrapped (music-warehouse src/wrapped.ts).
+ * The body of the Worker's GET /api/wrapped (music-warehouse src/wrapped.ts),
+ * as of its v3 bodies, which carry track and artist ids.
  * Kept by hand: the two repos share no package.
  */
 export interface WrappedArtist {
+  /** A Spotify artist id, or the export's `name:` placeholder for an artist no play has an id for. */
+  id: string;
   name: string;
   minutes: number;
   plays: number;
@@ -10,12 +13,15 @@ export interface WrappedArtist {
   days: number;
   longest_run_days: number;
   top_song: string | null;
+  top_song_id: string | null;
   image: string | null;
 }
 
 export interface WrappedSong {
+  track_id: string;
   name: string;
   artist: string;
+  artist_id: string;
   album: string | null;
   image: string | null;
   plays: number;
@@ -27,6 +33,7 @@ export interface WrappedSong {
 export interface WrappedAlbum {
   name: string;
   artist: string;
+  artist_id: string;
   image: string | null;
   plays: number;
   minutes: number;
@@ -37,7 +44,9 @@ export interface WrappedMonth {
   month: string;
   minutes: number;
   top_artist: string | null;
+  top_artist_id: string | null;
   top_song: string | null;
+  top_song_id: string | null;
   image: string | null;
 }
 
@@ -56,7 +65,7 @@ export interface Wrapped {
     artists: number;
     songs: number;
     share: number;
-    top: Array<{ name: string; minutes: number; image: string | null }>;
+    top: Array<{ id: string; name: string; minutes: number; image: string | null }>;
   };
   listening_age: {
     age: number;
@@ -68,11 +77,16 @@ export interface Wrapped {
   streak: { days: number; from: string; to: string } | null;
 }
 
+/** Artist photos from Spotify's live top lists, by Spotify artist id and, as a fallback, by lowercased name. */
+export interface ArtistImages {
+  ids: Record<string, string>;
+  names: Record<string, string>;
+}
+
 /** Everything the composition needs. Serializable, so it can be passed as --props. */
 export interface WrappedProps extends Record<string, unknown> {
   data: Wrapped;
-  /** Lowercased artist name → photo, from Spotify's live top lists where the artist appears. */
-  artistImages: Record<string, string>;
+  artistImages: ArtistImages;
   /** Object or file URL of an optional soundtrack, and where in it to start. */
   audio: { src: string; startSeconds: number } | null;
 }

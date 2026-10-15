@@ -1,5 +1,5 @@
 import { createContext, useContext, useSyncExternalStore } from 'react';
-import type { WrappedProps } from '../types';
+import type { ArtistImages, WrappedProps } from '../types';
 
 const WrappedContext = createContext<WrappedProps | null>(null);
 
@@ -11,10 +11,19 @@ export function useWrapped(): WrappedProps {
   return value;
 }
 
-/** The best picture of an artist: a live photo if Spotify gave one, else the art of their top song. */
-export function useArtistImage(name: string, fallback: string | null): string | null {
+/**
+ * The best picture of an artist: a live photo if Spotify gave one, else the
+ * art of their top song. Matched by id, then by name, since two artists can
+ * share a name and an export-only artist has no Spotify id.
+ */
+export function useArtistImage(artist: { id?: string | null; name: string } | undefined, fallback: string | null): string | null {
   const { artistImages } = useWrapped();
-  return artistImages[name.toLowerCase()] ?? fallback;
+  return pickArtistImage(artistImages, artist, fallback);
+}
+
+export function pickArtistImage(images: ArtistImages, artist: { id?: string | null; name: string } | undefined, fallback: string | null): string | null {
+  if (!artist) return fallback;
+  return (artist.id ? images.ids[artist.id] : undefined) ?? images.names[artist.name.toLowerCase()] ?? fallback;
 }
 
 /*

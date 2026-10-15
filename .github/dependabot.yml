@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      # Remotion's packages pin each other (and mediabunny) exactly, so they move together.
+      remotion:
+        patterns:
+          - remotion
+          - "@remotion/*"
+          - mediabunny
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
