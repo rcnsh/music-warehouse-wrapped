@@ -329,3 +329,23 @@ button.link {
   font-size: 18px;
   line-height: 20px;
 }
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #c9c5bc;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid currentColor;
+  opacity: 0.4;
+}

@@ -5,18 +5,20 @@ import { timeline } from '../remotion/timeline';
 import { ApiError, clearConnection, fetchArtistImages, fetchPresets, fetchWrapped, getConnection, normalizeUrl, setConnection, type Connection, type WrappedPreset } from './api';
 import { download, exportCard, exportVideo } from './exporter';
 import { daysAgo, rollingPresets } from './ranges';
+import { abandonSignIn, beginSignIn, finishSignIn, signInErrorMessage, takeCallback } from './signin';
 import { analyzeSoundtrack, type Soundtrack } from './soundtrack';
 import { Story } from './Story';
 
 type Stage =
-  | { kind: 'connect'; error?: string }
+  | { kind: 'connect'; error?: string; url?: string }
+  | { kind: 'signing-in'; code: string }
   | { kind: 'pick'; error?: string }
   | { kind: 'loading'; from: string; to: string }
   | { kind: 'ready'; data: Wrapped }
   | { kind: 'playing'; data: Wrapped };
 
 export function App() {
-  const [stage, setStage] = useState<Stage>(() => (getConnection() ? { kind: 'pick' } : { kind: 'connect' }));
+  const [stage, setStage] = useState<Stage>(initialStage);
   const [presets, setPresets] = useState<WrappedPreset[] | null>(null);
 
   // Development only: ?fixture opens the stored sample, no token or network needed.
@@ -28,7 +30,7 @@ export function App() {
   const [soundtrack, setSoundtrack] = useState<Soundtrack | null>(null);
   const abort = useRef<AbortController | null>(null);
 
-  const connected = stage.kind !== 'connect';
+  const connected = stage.kind !== 'connect' && stage.kind !== 'signing-in';
   useEffect(() => {
     const connection = getConnection();
     if (connection && connected) void fetchArtistImages(connection).then(setArtistImages);
@@ -41,6 +43,25 @@ export function App() {
     setStage({ kind: 'connect', error });
   }, []);
 
+  // Back from Spotify with a one-time code: trade it for a read token.
+  const code = stage.kind === 'signing-in' ? stage.code : null;
+  useEffect(() => {
+    if (!code) return;
+    let current = true;
+    finishSignIn(code)
+      .then((connection) => {
+        if (!current) return;
+        setConnection(connection);
+        setStage({ kind: 'pick' });
+      })
+      .catch((error) => {
+        if (current) setStage({ kind: 'connect', error: error instanceof Error ? error.message : String(error) });
+      });
+    return () => {
+      current = false;
+    };
+  }, [code]);
+
   // A connection restored from this tab's storage still needs its presets.
   useEffect(() => {
     const connection = getConnection();
@@ -48,7 +69,7 @@ export function App() {
     fetchPresets(connection)
       .then(setPresets)
       .catch((error) => {
-        if (error instanceof ApiError && error.status === 401) return signOut('That token was not accepted.');
+        if (error instanceof ApiError && error.status === 401) return signOut(TOKEN_REFUSED);
         setPresets([]);
         setStage({ kind: 'pick', error: error instanceof Error ? error.message : String(error) });
       });
@@ -65,7 +86,7 @@ export function App() {
       setStage({ kind: 'ready', data });
     } catch (error) {
       if (abort.current.signal.aborted) return;
-      if (error instanceof ApiError && error.status === 401) return signOut('That token was not accepted.');
+      if (error instanceof ApiError && error.status === 401) return signOut(TOKEN_REFUSED);
       setStage({ kind: 'pick', error: error instanceof Error ? error.message : String(error) });
     }
   }, [signOut]);
@@ -81,9 +102,16 @@ export function App() {
 
   return (
     <main className="app">
+      {stage.kind === 'signing-in' && (
+        <section className="panel center">
+          <div className="spinner" />
+          <p className="hint">Signing you in…</p>
+        </section>
+      )}
       {stage.kind === 'connect' && (
         <Connect
           error={stage.error}
+          initialUrl={stage.url}
           onConnect={(connection, ranges) => {
             setConnection(connection);
             setPresets(ranges);
@@ -123,8 +151,22 @@ export function App() {
   );
 }
 
-function Connect({ error, onConnect }: { error?: string; onConnect: (connection: Connection, presets: WrappedPreset[]) => void }) {
-  const [url, setUrl] = useState('');
+const TOKEN_REFUSED = 'That token was not accepted. It may have expired: sign in with Spotify again, or paste a new one.';
+
+/** Where this page load starts: a sign-in coming back, a connection already in this tab, or nothing yet. */
+function initialStage(): Stage {
+  const callback = takeCallback();
+  if (callback?.kind === 'code') return { kind: 'signing-in', code: callback.code };
+  if (callback?.kind === 'error') return { kind: 'connect', error: signInErrorMessage(callback.error), url: abandonSignIn() ?? undefined };
+  return getConnection() ? { kind: 'pick' } : { kind: 'connect' };
+}
+
+function Connect({ error, initialUrl, onConnect }: {
+  error?: string;
+  initialUrl?: string;
+  onConnect: (connection: Connection, presets: WrappedPreset[]) => void;
+}) {
+  const [url, setUrl] = useState(initialUrl ?? '');
   const [token, setToken] = useState('');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(error);
@@ -140,7 +182,7 @@ function Connect({ error, onConnect }: { error?: string; onConnect: (connection:
           const connection = { url: normalizeUrl(url), token: token.trim() };
           onConnect(connection, await fetchPresets(connection));
         } catch (e) {
-          if (e instanceof ApiError && e.status === 401) setProblem('That token was not accepted.');
+          if (e instanceof ApiError && e.status === 401) setProblem(TOKEN_REFUSED);
           else setProblem(e instanceof Error ? e.message : String(e));
         } finally {
           setBusy(false);
@@ -155,22 +197,42 @@ function Connect({ error, onConnect }: { error?: string; onConnect: (connection:
         <span>Warehouse URL</span>
         <input type="text" inputMode="url" spellCheck={false} autoComplete="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://music-warehouse.example.workers.dev" autoFocus />
       </label>
+      <button
+        type="button"
+        className="primary"
+        disabled={busy}
+        onClick={async () => {
+          setProblem(undefined);
+          if (!url.trim()) return setProblem('Enter your warehouse URL first.');
+          setBusy(true);
+          try {
+            location.assign(await beginSignIn(normalizeUrl(url)));
+          } catch (e) {
+            setProblem(e instanceof Error ? e.message : String(e));
+            setBusy(false);
+          }
+        }}
+      >
+        Sign in with Spotify
+      </button>
+      <p className="divider">or paste a token</p>
       <label className="field">
         <span>Warehouse token</span>
-        <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="ADMIN_TOKEN or READ_TOKEN" />
+        <input type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Device token, ADMIN_TOKEN or READ_TOKEN" />
       </label>
+      <button type="submit" disabled={busy || !token.trim()}>
+        {busy ? 'Connecting…' : 'Continue with token'}
+      </button>
+      {problem && <p className="error">{problem}</p>}
       <p className="hint">
         Your browser talks to your{' '}
         <a href="https://github.com/rcnsh/music-warehouse" target="_blank" rel="noreferrer">
           music-warehouse
         </a>{' '}
-        directly; nothing passes through this site. List {location.origin} in its CORS_ORIGINS. The admin token can wrap any range, the read token
-        each year and ranges already wrapped. Both are kept for this tab only.
+        directly; nothing passes through this site. List {location.origin} in its CORS_ORIGINS. Signing in with the Spotify account that owns
+        the warehouse gets a read token for 90 days, which opens each year and ranges already wrapped; an admin token can wrap any range.
+        Tokens are kept for this tab only.
       </p>
-      {problem && <p className="error">{problem}</p>}
-      <button type="submit" className="primary" disabled={busy}>
-        {busy ? 'Connecting…' : 'Continue'}
-      </button>
     </form>
   );
 }
