@@ -82,8 +82,9 @@ flowchart LR
 
 ### Privacy
 
-- The warehouse URL and token are kept in the tab's `sessionStorage` only, so
-  closing the tab forgets them. **Use a different warehouse** clears them.
+- A sign-in token and the warehouse URL are kept in the tab's `sessionStorage`
+  only, so closing the tab forgets them; a pasted token is kept in memory only.
+  **Use a different warehouse** clears them.
 - Artist photo URLs are cached in `localStorage` for up to seven days, tied to
   the warehouse URL, and cleared when you switch warehouse.
 - A soundtrack file is decoded locally and never leaves your machine.
@@ -91,6 +92,11 @@ flowchart LR
   or your token. The only other requests are for fonts (Google Fonts, via
   `@remotion/google-fonts`) and cover art and artist photos (Spotify's image
   CDN).
+- The site sends a Content-Security-Policy and related headers from
+  [`public/_headers`](public/_headers): scripts from the site only, no `eval`
+  (WebAssembly aside, for the audio encoders), no framing, no referrer.
+  `connect-src` has to allow any HTTPS origin, since the warehouse is whichever
+  one you enter.
 
 ## Requirements
 
@@ -102,7 +108,9 @@ flowchart LR
   [configuration](https://github.com/rcnsh/music-warehouse#configuration).
 - Optional: [Spotify sign-in](https://github.com/rcnsh/music-warehouse#signing-in-with-spotify)
   set up on the warehouse, if you want to sign in rather than paste a token.
-- A recent desktop browser. Video export needs WebCodecs support.
+- A recent desktop browser. Video export needs WebCodecs and WebGL; the app
+  checks for them first, exports WebM where the browser can't encode H.264, and
+  says so if it can't export video at all.
 
 > [!IMPORTANT]
 > If the warehouse doesn't list this app's origin in `CORS_ORIGINS`, the browser
@@ -117,21 +125,30 @@ Using the hosted site at <https://wrapped.rcn.sh>:
 2. Open <https://wrapped.rcn.sh> and enter your warehouse URL, for example
    `https://music-warehouse.<you>.workers.dev`.
 3. **Sign in with Spotify** (the warehouse mints a 90-day read token), or paste
-   a device token, `READ_TOKEN` or `ADMIN_TOKEN`.
+   a read [device token](https://github.com/rcnsh/music-warehouse#device-tokens).
 4. Pick a range, or enter your own dates and choose **Wrap it**.
 5. Play the story, optionally with a soundtrack from a local audio file, or
    export it as a video or a card.
 
-### Which token can do what
+### Which token to use
 
-| Token | Can open |
-|---|---|
-| Read token, device token or Spotify sign-in | Each year with plays, this year so far, and any range already wrapped |
-| `ADMIN_TOKEN` | Any range, including ones not yet computed (last 30 and 90 days, all time, custom dates) |
+A read token: the one Spotify sign-in mints, or a device token minted with
+`access: read`. It opens each year with plays, this year so far (the warehouse
+computes these on request, and warms them from its daily cron), and any other
+range the warehouse has already wrapped. The app offers only those ranges once
+it knows the token is read-only.
 
-> [!TIP]
-> If a range fails with a read token, open it once with the admin token. After
-> that the warehouse has it stored, and a read token can open it too.
+> [!WARNING]
+> Never paste the warehouse's `ADMIN_TOKEN` into this app, or any web page. It
+> can mint and revoke tokens, and a public page is the wrong place to hold it.
+> To wrap a custom range, ask for it once from a trusted machine (for example
+> `curl -H "Authorization: Bearer $ADMIN_TOKEN" "$WORKER_URL/api/wrapped?from=…&to=…"`);
+> after that the warehouse has it stored, and a read token can open it here.
+
+A token from Spotify sign-in is kept in the tab's `sessionStorage`. A pasted
+token is kept in memory only, so reloading the page asks for it again: the app
+can't tell a read token from an admin one without spending a compute, so it
+doesn't write any pasted token down.
 
 ## Self-hosting
 
@@ -169,6 +186,10 @@ the browser. The only settings are in `cloudflare.config.ts`.
 | `domains` | `['wrapped.rcn.sh']` | Change this when self-hosting |
 | `workersDev` / `previewUrls` | `false` | Only the custom domain is public |
 | `assets.notFoundHandling` | `single-page-application` | Unknown paths serve the app |
+
+Response headers (the Content-Security-Policy and friends) are in
+`public/_headers`, which Vite copies into the build and Workers static assets
+applies to every response.
 
 ## Development
 

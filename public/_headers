@@ -1,0 +1,17 @@
+# Response headers for every static asset, applied by Workers static assets.
+#
+# connect-src allows any https origin because the warehouse is whichever one
+# the reader types in (and Remotion's license telemetry); http://localhost is
+# for a warehouse under `wrangler dev`. img-src allows any https host because
+# artist and album art come from Spotify's CDNs, and connect-src already
+# reaches anywhere, so narrowing images would close nothing. The rest is tight:
+# no inline or remote script, no eval (only WebAssembly, for Mediabunny's
+# audio encoders), blob: workers for Remotion and Mediabunny, blob: media for a
+# soundtrack picked from disk, Google Fonts for the type, and no framing.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' data: blob:; connect-src 'self' https: blob: data: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Cross-Origin-Opener-Policy: same-origin
