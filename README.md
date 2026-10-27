@@ -1,4 +1,5 @@
 <div align="center">
+<img src="assets/icon.svg" width="96" height="96" alt="">
 <h1>music-warehouse-wrapped</h1>
 <p><strong>Spotify-Wrapped-style stories from your own listening history, for any year or range.</strong></p>
 <p>
